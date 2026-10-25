@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Ücretsiz şarkı platformu: ara, dinle, kendi şarkını yükle.">
+<title>BİXSONG</title>
+<style>
+:root{--bg:#f6f4ff;--card:#fff;--tx:#1d1b2e;--mu:#6b6880;--ac:#7c4dff;--bd:#e3dff5;color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#14121f;--card:#1e1b30;--tx:#f0eeff;--mu:#a29fba;--bd:#322e4d}}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+header{position:sticky;top:env(safe-area-inset-top,0px);background:var(--bg);padding:12px;z-index:5}
+.top{max-width:720px;margin:auto}
+h1{font-size:20px;margin:0 0 8px}
+#q{width:100%;padding:14px 16px;font-size:16px;border-radius:28px;border:1px solid var(--bd);background:var(--card);color:var(--tx);outline:none}
+#q:focus{border-color:var(--ac)}
+main{max-width:720px;margin:auto;padding:0 12px 150px}
+.song{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:10px 12px;margin:8px 0}
+.song.on{border-color:var(--ac)}
+.pl{width:42px;height:42px;border-radius:50%;border:0;background:var(--ac);color:#fff;font-size:16px;flex:none}
+.t{font-weight:600}.a{color:var(--mu);font-size:14px}
+.info{min-width:0;flex:1}.info div{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.up{background:var(--card);border:1px dashed var(--ac);border-radius:14px;padding:14px;margin:12px 0}
+.up input[type=text]{width:100%;padding:11px;margin:5px 0;font-size:16px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
+.up input[type=file]{width:100%;margin:6px 0;color:var(--tx)}
+.pick{display:block;text-align:center;padding:16px;margin:8px 0;border:2px dashed var(--ac);border-radius:12px;color:var(--ac);font-weight:600;cursor:pointer}.btn{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:12px 18px;font-size:16px;width:100%}
+.btn:disabled{opacity:.5}#chips{display:flex;gap:8px;overflow-x:auto;padding:10px 0 2px}.chip{flex:none;border:1px solid var(--bd);background:var(--card);color:var(--tx);border-radius:20px;padding:8px 14px;font-size:14px}.chip.on{background:var(--ac);color:#fff;border-color:var(--ac)}#ge{width:100%;padding:11px;margin:5px 0;font-size:16px;border-radius:10px;border:1px solid var(--bd);background:var(--bg);color:var(--tx)}
+.note{color:var(--mu);font-size:13px;margin:6px 0}
+#bar{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--bd);padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));display:none}
+#bar.show{display:block}
+#bar audio{width:100%;max-width:720px;display:block;margin:4px auto 0}
+#now{max-width:720px;margin:auto;font-size:14px;font-weight:600}
+</style>
+</head>
+<body>
+<header><div class="top">
+<h1>🎵 BİXSONG</h1>
+<input id="q" type="search" placeholder="Şarkı veya sanatçı ara…" autocomplete="off"><div id="chips"></div>
+</div></header>
+<main>
+<div class="up">
+<strong id="upt">⬆️ Şarkı yükle (ücretsiz)</strong>
+<input id="ti" type="text" placeholder="Şarkı adı">
+<input id="ar" type="text" placeholder="Sanatçı"><select id="ge"></select>
+<div style="position:relative"><div class="pick" id="pk">📁 Ses dosyası seç (MP3, WAV, M4A…)</div><input id="fi" type="file" accept="audio/*" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;font-size:0;cursor:pointer"></div>
+<p class="note">Sadece kendi yaptığın veya paylaşım izni olan şarkıları yükle. Telif hakkı olan şarkılar yüklenemez. Dosya en fazla 20 MB.</p>
+<button class="btn" id="go">Yükle</button>
+<p class="note" id="msg"></p>
+</div>
+<div id="list"></div>
+</main>
+<div id="bar"><div id="now"></div><audio id="au" controls></audio></div>
+<script>
+var songs=[],cur=null,db=null,assets=null,user=null,local=[],gsel="Hepsi",GN=["Rap","Pop","Rock","R&B","Elektronik","Arabesk","Diğer"];
+var $=function(i){return document.getElementById(i)};
+function say(t){$("msg").textContent=t}
+function render(){
+  var q=$("q").value.toLowerCase().trim();
+  var all=songs.concat(local).filter(function(s){return (gsel==="Hepsi"||s.genre===gsel)&&(!q||(s.title+" "+s.artist).toLowerCase().indexOf(q)>-1)});
+  var L=$("list");L.textContent="";
+  if(!all.length){var p=document.createElement("p");p.className="note";p.textContent=q?"Sonuç bulunamadı.":"Henüz şarkı yok. İlk şarkıyı sen yükle!";L.appendChild(p);return}
+  all.forEach(function(s){
+    var d=document.createElement("div");d.className="song"+(cur===s.url?" on":"");
+    var b=document.createElement("button");b.className="pl";b.textContent=cur===s.url&&!$("au").paused?"❚❚":"▶";
+    b.onclick=function(){play(s)};
+    var i=document.createElement("div");i.className="info";
+    var t=document.createElement("div");t.className="t";t.textContent=s.title;
+    var a=document.createElement("div");a.className="a";a.textContent=(s.artist||"Bilinmeyen sanatçı")+(s.genre?" · "+s.genre:"");
+    i.appendChild(t);i.appendChild(a);d.appendChild(b);d.appendChild(i);L.appendChild(d);
+  });
+}
+function play(s){
+  var au=$("au");
+  if(cur===s.url){au.paused?au.play():au.pause();return}
+  cur=s.url;au.src=s.url;au.play().catch(function(){});
+  $("bar").className="show";$("now").textContent=s.title+" – "+(s.artist||"");render();
+}
+$("au").onplay=$("au").onpause=render;
+$("q").oninput=render;
+GN.forEach(function(g){var o=document.createElement("option");o.textContent=g;$("ge").appendChild(o)});
+function chips(){var c=$("chips");c.textContent="";["Hepsi"].concat(GN).forEach(function(g){var b=document.createElement("button");b.className="chip"+(g===gsel?" on":"");b.textContent=g;b.onclick=function(){gsel=g;chips();render()};c.appendChild(b)})}
+chips();
+var _lp=local.push;local.push=function(s){s.genre=$("ge").value;return _lp.call(local,s)};
+$("fi").onchange=function(){var f=this.files[0];$("pk").textContent=f?"✅ "+f.name:"📁 Ses dosyası seç (MP3, WAV, M4A…)"};
+$("go").onclick=async function(){
+  var f=$("fi").files[0],ti=$("ti").value.trim(),ar=$("ar").value.trim();
+  if(!ti||!f){say("Şarkı adı ve ses dosyası gerekli.");return}
+  if(f.size>20*1048576){say("Dosya 20 MB'dan büyük.");return}
+  $("go").disabled=true;say("Yükleniyor…");
+  try{
+    if(assets&&db){
+      var r=await assets.upload(f);
+      await db.collection("songs").doc("s"+Date.now()+Math.random().toString(36).slice(2,6)).set({title:ti,artist:ar,url:"/_blob/"+r.id,genre:$("ge").value,at:Date.now()});
+      say("Yüklendi! Herkes dinleyebilir.");
+    }else{
+      local.push({title:ti,artist:ar,url:URL.createObjectURL(f)});
+      say("Yüklendi, ama sadece bu cihazda görünür (herkese açık yükleme için giriş gerekir).");
+      render();
+    }
+    $("ti").value="";$("ar").value="";$("fi").value="";$("pk").textContent="📁 Ses dosyası seç (MP3, WAV, M4A…)";
+  }catch(e){
+    local.push({title:ti,artist:ar,url:URL.createObjectURL(f)});
+    say("Herkese açık yükleme şu an çalışmadı. Şarkı sadece bu cihazda eklendi.");render();
+  }
+  $("go").disabled=false;
+};
+render();
+(async function(){
+  try{
+    if(!window.claude)return;
+    user=await claude.use("user");
+    db=await claude.use("db");
+    assets=await claude.use("assets");
+    if(db){
+      db.collection("songs").onSnapshot(function(snap){
+        songs=snap.docs.map(function(d){return d.data()}).sort(function(a,b){return (b.at||0)-(a.at||0)});
+        render();
+      },function(){});
+    }
+  }catch(e){}
+})();
+</script>
+</body>
+</html>
